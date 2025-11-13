@@ -60,6 +60,3 @@ JOIN package_info p ON u.packge_id = p.id
 LEFT JOIN login_info l ON u.account = l.account_id 
     AND l.logout_time IS NOT NULL  -- 只计算已完成的会话
 GROUP BY u.account, u.name, u.phone, p.duration, u.balance, p.cost;
-
--- 使用视图查询所有用户剩余时长
-SELECT * FROM user_remaining_time ORDER BY remaining_hours DESC;
