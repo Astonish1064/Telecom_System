@@ -54,26 +54,26 @@ class LoginInfoRepositoryTest {
     void testFindByIdAccountId() {
         // 测试根据用户ID查找登录记录
         createSampleData();
-        System.out.println("-- testFindByIdAccountId 开始 --");
+        System.out.println("-- testFindByIdAccountId begin --");
         long total = loginInfoRepository.count();
-        System.out.println("login_info 总记录数: " + total);
+        System.out.println("login_info all_records: " + total);
         List<LoginInfo> results = loginInfoRepository.findByIdAccountId(200001);
-        System.out.println("查询 accountId=200001 的结果数: " + results.size());
+        System.out.println("select accountId=200001 results: " + results.size());
         results.forEach(li -> System.out.println(prettyLoginInfo(li)));
         assertNotNull(results);
-        System.out.println("-- testFindByIdAccountId 结束 --\n");
+        System.out.println("-- testFindByIdAccountId over --\n");
     }
     
     @Test
     void testFindByLogoutTimeIsNull() {
         // 测试查找在线用户
         createSampleData();
-        System.out.println("-- testFindByLogoutTimeIsNull 开始 --");
+        System.out.println("-- testFindByLogoutTimeIsNull begin --");
         List<LoginInfo> onlineUsers = loginInfoRepository.findByLogoutTimeIsNull();
-        System.out.println("在线用户数量 (logout_time is null): " + onlineUsers.size());
+        System.out.println("login_in uesrs (logout_time is null): " + onlineUsers.size());
         onlineUsers.forEach(li -> System.out.println(prettyLoginInfo(li)));
         assertNotNull(onlineUsers);
-        System.out.println("-- testFindByLogoutTimeIsNull 结束 --\n");
+        System.out.println("-- testFindByLogoutTimeIsNull over --\n");
     }
     
     @Test
@@ -87,9 +87,9 @@ class LoginInfoRepositoryTest {
         loginInfo.setId(pk);
         loginInfo.setLogoutTime(LocalDateTime.now().plusHours(1));
         
-        System.out.println("-- testSaveAndFindLoginInfo 开始 --");
-        System.out.println("保存前 login_info 数: " + loginInfoRepository.count());
-        System.out.println("保存前 user_info 数: " + userRepository.count());
+        System.out.println("-- testSaveAndFindLoginInfo begin --");
+        System.out.println("store before login_info nums: " + loginInfoRepository.count());
+        System.out.println("store after user_info nums: " + userRepository.count());
 
         // 先创建并保存一个对应的用户，避免外键约束失败
         User u = new User();
@@ -100,20 +100,20 @@ class LoginInfoRepositoryTest {
         u.setPackageId(1);
         u.setPhone("0000000000");
         User savedUser = userRepository.save(u);
-        System.out.println("已保存用户: " + prettyUser(savedUser));
+        System.out.println("have saved user: " + prettyUser(savedUser));
 
         // 保存登录信息
         LoginInfo saved = loginInfoRepository.save(loginInfo);
-        System.out.println("已保存登录信息: " + prettyLoginInfo(saved));
+        System.out.println("have saved login_info: " + prettyLoginInfo(saved));
         assertNotNull(saved);
         
         // 查询验证
         List<LoginInfo> results = loginInfoRepository.findByIdAccountId(999999);
-        System.out.println("查询 accountId=999999 的结果数: " + results.size());
+        System.out.println("select accountId=999999 results: " + results.size());
         results.forEach(li -> System.out.println(prettyLoginInfo(li)));
         assertFalse(results.isEmpty());
         assertEquals(999999, results.get(0).getAccountId());
-        System.out.println("-- testSaveAndFindLoginInfo 结束 --\n");
+        System.out.println("-- testSaveAndFindLoginInfo over --\n");
     }
 
     // 辅助打印方法
