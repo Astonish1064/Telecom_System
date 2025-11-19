@@ -1,6 +1,7 @@
 package com.telecom_system.entity;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
@@ -33,10 +34,8 @@ public class User {
     @Column(name = "phone", nullable = false, length = 20)
     private String phone;  // 新增电话号码字段
 
-    // 原有其他字段（根据业务需要保留）
-    private String role; // "ENTERPRISE" 或 "NORMAL"
-    private LocalDateTime createTime = LocalDateTime.now();
-
+    @Column(name = "package_start_time",nullable = false, length = 30)
+    private LocalDateTime packageStartTime; // 套餐开始时间
     
     // 构造方法
     public User() {}
@@ -56,9 +55,6 @@ public class User {
 
     public String getPassword() { return password; }
     public void setPassword(String password) { this.password = password; }
-    
-    public String getRole() { return role; }
-    public void setRole(String role) { this.role = role; }
 
     public BigDecimal getBalance() { return balance; }
     public void setBalance(BigDecimal balance) { this.balance = balance; }
@@ -68,7 +64,7 @@ public class User {
 
     public String getPhone() { return phone; }
     public void setPhone(String phone) { this.phone = phone; }
-    
-    public LocalDateTime getCreateTime() { return createTime; }
-    public void setCreateTime(LocalDateTime createTime) { this.createTime = createTime; }
+
+    public LocalDateTime getPackageStartTime() { return packageStartTime; }
+    public void setPackageStartTime(LocalDateTime packageStartTime) { this.packageStartTime = packageStartTime; }
 }

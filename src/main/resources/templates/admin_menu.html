@@ -58,8 +58,7 @@
                         <td th:text="${user.name}" data-field="name">张三</td>
                         <td th:text="${user.phone}" data-field="phone">13800000000</td>
                         <td th:text="${user.packageId}" data-field="packageId">1</td>
-                        <td th:text="${user.balance}" data-field="balance">88.00</td>
-                        <td>
+                        <td data-field="balance" th:data-original-value="${user.balance}">￥<span th:text="${user.balance}">88.00</span></td>                        <td>
                             <button class="btn btn-warning btn-sm me-2 edit-btn"
                                     th:data-account="${user.account}">
                                 修改
@@ -112,49 +111,29 @@
     </div>
 
 </div>
-
-<!-- 流量统计结果 Modal -->
-<div class="modal fade" id="trafficModal" tabindex="-1"
-     aria-labelledby="trafficModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="trafficModalLabel">用户流量统计结果</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
-      </div>
-      <div class="modal-body">
-        <div class="table-responsive">
-            <table class="table table-striped table-bordered align-middle" id="trafficTable">
-              <thead class="table-dark">
-                <tr>
-                                    <th>账号</th>
-                                    <th>姓名</th>
-                                    <th>总在线时长(小时)</th>
-                                    <th>最后登录时间</th>
-                                    <th>登录次数</th>
-                                    <th>活跃等级</th>
-                                    <th>余额</th>
-                                    <th>套餐ID</th>
-                </tr>
-              </thead>
-              <tbody>
-                <!-- JS 动态填充 -->
-              </tbody>
-            </table>
+<!-- 小时活跃度 Modal -->
+    <div class="modal fade" id="hourlyModal" tabindex="-1" aria-labelledby="hourlyModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="hourlyModalLabel">24小时活跃度</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="关闭"></button>
+                </div>
+                <div class="modal-body">
+                    <canvas id="hourlyChartCanvas" width="800" height="300"></canvas>
+                    
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                </div>
+            </div>
         </div>
-        <label class="form-label mt-3">原始统计数据(JSON)：</label>
-        <pre id="trafficRawJson" class="bg-light p-2 small border" style="max-height: 200px; overflow:auto;"></pre>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
-      </div>
     </div>
-  </div>
 </div>
-
 <!-- Bootstrap 5 JS（包含 Modal 所需脚本；如需离线请改成本地文件） -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-
+<!-- Chart.js 用于绘制折线图 -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
 (() => {
     const apiPrefix = "/admin";
@@ -232,13 +211,27 @@
                 // 变为可编辑
                 tr.querySelectorAll("td[data-field]").forEach(td => {
                     const field = td.getAttribute("data-field");
-                    const value = td.textContent.trim();
                     let inputType = "text";
-                    if (field === "balance" || field === "packageId") inputType = "number";
-                    console.log(`[edit-btn] 字段${field}变为可编辑，原值：${value}`);
+                    let originalValue;
+                    
+                    if (field === "balance" || field === "packageId") {
+                        // 从 data-original-value 属性获取原始数值
+                        if(field === "balance")originalValue = td.getAttribute("data-original-value");
+                        else originalValue = td.textContent.trim();
+                        inputType = "number";
+                    } 
+                    else {
+                        // 其他字段直接获取文本内容
+                        originalValue = td.textContent.trim();
+                    }
+                    
+                    console.log(`[edit-btn] 字段${field}变为可编辑，原值：${originalValue}`);
+                    
                     td.innerHTML =
-                        `<input class="form-control form-control-sm" name="${field}" type="${inputType}" value="${value}">`;
+                        `<input class="form-control form-control-sm" name="${field}" type="${inputType}" value="${originalValue}">`;
                 });
+
+
                 btn.textContent = "保存";
 
                 // 标记当前正在编辑的行
@@ -299,88 +292,122 @@
                 });
         });
     });
+    // 分析流量并在 Modal 中展示折线图
+    document.getElementById("analyzeTraffic").addEventListener("click", () => { 
+    console.log("[analyzeTraffic] 点击获取流量分析数据");
+    fetch("/admin/traffic-stats")
+        .then(resp => {
+            if (!resp.ok) throw new Error("请求失败，状态码：" + resp.status);
+            return resp.json();
+        })
+        .then(data => {
+            console.log("[analyzeTraffic] 返回数据：", data);
 
-    // 分析流量并在 Modal 中展示
-    document.getElementById("analyzeTraffic").addEventListener("click", () => {
-        console.log("[analyzeTraffic] 点击分析流量按钮");
-        fetch("/admin/traffic-stats")
-            .then(resp => {
-                if (!resp.ok) throw new Error("请求失败，状态码：" + resp.status);
-                return resp.json();
-            })
-            .then(data => {
-                console.log("[analyzeTraffic] 返回数据：", data);
 
-                const tbody = document.querySelector("#trafficTable tbody");
-                tbody.innerHTML = "";
-
-                // 兼容后端可能返回的不同结构：直接数组、{data: [...]}、或单个对象
-                let rows = data;
-                if (!Array.isArray(rows)) {
-                    if (rows && rows.data && Array.isArray(rows.data)) rows = rows.data;
-                    else if (rows && rows.stats && Array.isArray(rows.stats)) rows = rows.stats;
-                    else rows = [rows];
-                }
-
-                if (Array.isArray(rows) && rows.length > 0) {
-                    rows.forEach(item => {
-                            console.log("[analyzeTraffic] 处理行数据：", item);
-                            const tr = document.createElement("tr");
-                            // 后端返回的字段以 getUserActivityStatistics() 为准，映射如下：
-                            // accountId, userName, totalOnlineHours, lastLoginTime, loginCount, activityLevel, balance, packageId
-                            const account = item.accountId ?? item.account ?? "";
-                            const name = item.userName ?? item.name ?? "";
-                            const totalHours = item.totalOnlineHours ?? item.totalOnline ?? "";
-                            const lastLogin = item.lastLoginTime ?? item.lastActiveTime ?? "";
-                            const loginCount = item.loginCount ?? "";
-                            const level = item.activityLevel ?? "";
-                            const balance = item.balance ?? "";
-                            const packageId = item.packageId ?? "";
-
-                            // 格式化时间为本地字符串（如果是 ISO 字符串或可解析）
-                            let lastLoginStr = lastLogin;
-                            try {
-                                if (lastLogin && typeof lastLogin === 'string') {
-                                    const dt = new Date(lastLogin);
-                                    if (!isNaN(dt)) lastLoginStr = dt.toLocaleString();
-                                } else if (lastLogin && typeof lastLogin === 'object' && lastLogin.toString) {
-                                    // 如果是序列化的 LocalDateTime，也尝试转换
-                                    lastLoginStr = lastLogin.toString();
-                                }
-                            } catch (e) {
-                                // ignore
-                            }
-
-                            tr.innerHTML = `
-                                <td>${account}</td>
-                                <td>${name}</td>
-                                <td>${totalHours}</td>
-                                <td>${lastLoginStr}</td>
-                                <td>${loginCount}</td>
-                                <td>${level}</td>
-                                <td>${balance}</td>
-                                <td>${packageId}</td>
-                            `;
-                            tbody.appendChild(tr);
-                        });
+            // 处理数据 - 兼容不同结构
+            let hourlyData = data;
+            if (!Array.isArray(hourlyData)) {
+                if (hourlyData && hourlyData.data && Array.isArray(hourlyData.data)) {
+                    hourlyData = hourlyData.data;
+                } else if (hourlyData && hourlyData.stats && Array.isArray(hourlyData.stats)) {
+                    hourlyData = hourlyData.stats;
                 } else {
-                    const tr = document.createElement("tr");
-                    tr.innerHTML = `<td colspan="8" class="text-center">暂无统计数据</td>`;
-                    tbody.appendChild(tr);
+                    hourlyData = [hourlyData];
                 }
+            }
 
-                const raw = document.getElementById("trafficRawJson");
-                raw.textContent = JSON.stringify(data, null, 2);
+            // 准备24小时完整数据（0-23点）
+            const hours = Array.from({length: 24}, (_, i) => i);
+            const onlineUserCounts = Array(24).fill(0); // 初始化为0
 
-                const modalEl = document.getElementById("trafficModal");
-                const modal = new bootstrap.Modal(modalEl);
-                modal.show();
-            })
-            .catch(err => {
-                console.error("[analyzeTraffic] 流量分析接口不可用", err);
-                alert("流量分析接口暂不可用：" + err.message);
+            // 用实际数据填充
+            if (Array.isArray(hourlyData) && hourlyData.length > 0) {
+                hourlyData.forEach(item => {
+                    const hour = item.hour;
+                    const count = item.onlineUserCount || 0;
+                    if (hour >= 0 && hour <= 23) {
+                        onlineUserCounts[hour] = count;
+                    }
+                });
+            }
+
+            // 获取canvas上下文
+            const ctx = document.getElementById('hourlyChartCanvas').getContext('2d');
+
+            // 如果已存在图表实例，先销毁
+            if (window.hourlyChartInstance) {
+                window.hourlyChartInstance.destroy();
+            }
+
+            // 创建新图表
+            window.hourlyChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: hours.map(h => `${h}:00`), // x轴标签：0:00, 1:00, ..., 23:00
+                    datasets: [{
+                        label: '小时活跃度',
+                        data: onlineUserCounts,
+                        borderColor: 'rgba(54, 162, 235, 1)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                        tension: 0.4, // 曲线平滑度
+                        fill: true,
+                        pointRadius: 3,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: '24小时用户流量分析'
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: '小时'
+                            },
+                            grid: {
+                                display: true
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '在线用户数'
+                            },
+                            beginAtZero: true,
+                            grid: {
+                                display: true
+                            },
+                            ticks: {
+                                precision: 0 // 只显示整数
+                            }
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'nearest'
+                    }
+                }
             });
-    });
+
+            // 显示Modal
+            const modalEl = document.getElementById("hourlyModal");
+            const modal = new bootstrap.Modal(modalEl);
+            modal.show();
+        })
+        .catch(err => {
+            console.error("[analyzeTraffic] 流量分析接口不可用", err);
+            alert("流量分析接口暂不可用：" + err.message);
+        });
+});
+    
 })();
 </script>
 

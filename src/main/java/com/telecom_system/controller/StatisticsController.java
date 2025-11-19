@@ -1,11 +1,10 @@
 package com.telecom_system.controller;
 
 import com.telecom_system.service.StatisticsService;
-import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
+
 import java.util.Map;
 
 @RestController
@@ -49,16 +48,6 @@ public class StatisticsController {
     @GetMapping("/user-hourly-activity")
     public ResponseEntity<?> getHourlyOnlineUserStatistics() {
         return ResponseEntity.ok(statisticsService.getHourlyOnlineUserStatistics());
-    }
-    
-    /**
-     * 获取收入统计
-     */
-    @GetMapping("/revenue")
-    public ResponseEntity<?> getRevenueStatistics(
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
-        return ResponseEntity.ok(statisticsService.getRevenueStatistics(start, end));
     }
     
     /**

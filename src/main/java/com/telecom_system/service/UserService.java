@@ -1,11 +1,12 @@
 package com.telecom_system.service;
 
 import com.telecom_system.entity.User;
+import com.telecom_system.entity.Package;
+import com.telecom_system.repository.PackageRepository;
 import com.telecom_system.repository.UserRepository;
 
 import org.springframework.dao.DataIntegrityViolationException;
 
-//import jakarta.persistence.criteria.CriteriaBuilder.In;
 
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.data.domain.Page;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,17 +29,19 @@ public class UserService {
     
     private final UserRepository userRepository;
     private final JdbcTemplate jdbcTemplate;
+    private final PackageRepository packageRepository;
 
-    public UserService(UserRepository userRepository, JdbcTemplate jdbcTemplate) {
+    public UserService(UserRepository userRepository,PackageRepository packageRepository, JdbcTemplate jdbcTemplate) {
         this.userRepository = userRepository;
+        this.packageRepository = packageRepository;
         this.jdbcTemplate = jdbcTemplate;
     }
     
     /**
      * 查找所有用户
      */
-    public List<User> findAllUsers() {
-        return userRepository.findAll();
+    public List<User> findAllByOrderByAccountDesc() {
+        return userRepository.findAllByOrderByAccountDesc();
     }
     
     /**
@@ -88,9 +92,6 @@ public class UserService {
                     }
                     if (User.getPhone() != null) {
                         existingUser.setPhone(User.getPhone());
-                    }
-                    if (User.getRole() != null) {
-                        existingUser.setRole(User.getRole());
                     }
                     if (User.getPackageId() != null) {
                         existingUser.setPackageId(User.getPackageId());
@@ -152,16 +153,31 @@ public class UserService {
      */
     public User changePackage(Integer account, Integer packageId) {
         try {
-        return userRepository.findById(account)
-                .map(user -> {
-                    user.setPackageId(packageId);
-                    return userRepository.save(user);
-                })
-                .orElseThrow(() -> new RuntimeException("用户不存在: " + account));
-                
+            // 1. 查询用户信息
+            User user = userRepository.findById(account)
+                    .orElseThrow(() -> new RuntimeException("用户不存在: " + account));
+            
+            // 2. 查询套餐信息
+            Package pkg = packageRepository.findById(packageId)
+                    .orElseThrow(() -> new RuntimeException("套餐不存在: " + packageId));
+            
+            // 3. 检查余额是否足够
+            if (user.getBalance().compareTo(pkg.getCost()) < 0) {
+                throw new RuntimeException("余额不足，当前余额: " + user.getBalance() + "，套餐费用: " + pkg.getCost());
+            }
+            
+            // 4. 扣费
+            user.setBalance(user.getBalance().subtract(pkg.getCost()));
+            
+            // 5. 更新套餐（不累加时长，直接覆盖）
+            user.setPackageId(packageId);
+            user.setPackageStartTime(LocalDateTime.now());
+            
+            // 6. 保存用户信息
+            return userRepository.save(user);
+            
         } catch (DataIntegrityViolationException e) {
-            // 处理外键约束违反异常
-            throw new RuntimeException("套餐不存在或无效: " + packageId);
+            throw new RuntimeException("操作失败，数据完整性约束违反: " + e.getMessage());
         }
     }
     
@@ -180,25 +196,59 @@ public class UserService {
                 u.name,
                 u.phone,
                 p.duration as total_duration,
-                COALESCE(SUM(EXTRACT(EPOCH FROM (l.logout_time - l.login_time))), 0) as used_seconds,
-                COALESCE(SUM(EXTRACT(EPOCH FROM (l.logout_time - l.login_time)) / 3600), 0) as used_hours,
-                (EXTRACT(EPOCH FROM p.duration::interval) - COALESCE(SUM(EXTRACT(EPOCH FROM (l.logout_time - l.login_time))), 0)) as remaining_seconds,
-                ((EXTRACT(EPOCH FROM p.duration::interval) - COALESCE(SUM(EXTRACT(EPOCH FROM (l.logout_time - l.login_time))), 0)) / 3600) as remaining_hours,
+                COALESCE(SUM(
+                    CASE 
+                        WHEN l.logout_time IS NOT NULL THEN 
+                            EXTRACT(EPOCH FROM (l.logout_time - l.login_time))
+                        ELSE 
+                            EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - l.login_time))
+                    END
+                ), 0) as used_seconds,
+                COALESCE(SUM(
+                    CASE 
+                        WHEN l.logout_time IS NOT NULL THEN 
+                            EXTRACT(EPOCH FROM (l.logout_time - l.login_time)) / 3600
+                        ELSE 
+                            EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - l.login_time)) / 3600
+                    END
+                ), 0) as used_hours,
+                (EXTRACT(EPOCH FROM p.duration::interval) - COALESCE(SUM(
+                    CASE 
+                        WHEN l.logout_time IS NOT NULL THEN 
+                            EXTRACT(EPOCH FROM (l.logout_time - l.login_time))
+                        ELSE 
+                            EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - l.login_time))
+                    END
+                ), 0)) as remaining_seconds,
+                ((EXTRACT(EPOCH FROM p.duration::interval) - COALESCE(SUM(
+                    CASE 
+                        WHEN l.logout_time IS NOT NULL THEN 
+                            EXTRACT(EPOCH FROM (l.logout_time - l.login_time))
+                        ELSE 
+                            EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - l.login_time))
+                    END
+                ), 0)) / 3600) as remaining_hours,
                 u.balance,
                 p.cost,
                 CASE 
-                    WHEN (EXTRACT(EPOCH FROM p.duration::interval) - COALESCE(SUM(EXTRACT(EPOCH FROM (l.logout_time - l.login_time))), 0)) < 0 
+                    WHEN (EXTRACT(EPOCH FROM p.duration::interval) - COALESCE(SUM(
+                        CASE 
+                            WHEN l.logout_time IS NOT NULL THEN 
+                                EXTRACT(EPOCH FROM (l.logout_time - l.login_time))
+                            ELSE 
+                                EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - l.login_time))
+                        END
+                    ), 0)) < 0 
                     THEN '已超时'
                     ELSE '正常'
                 END as status
             FROM user_info u
             JOIN package_info p ON u.package_id = p.id
             LEFT JOIN login_info l ON u.account = l.account_id 
-                AND l.logout_time IS NOT NULL
+                AND l.login_time >= u.package_start_time
             WHERE u.account = ?
             GROUP BY u.account, u.name, u.phone, p.duration, u.balance, p.cost
             """;
-        
         try {
             Map<String, Object> queryData = jdbcTemplate.queryForMap(sql, account);
             
@@ -211,16 +261,22 @@ public class UserService {
             result.put("balance", user.getBalance());
             
             // 计算时间格式
-            Double totalSeconds = (Double) queryData.get("used_seconds");
-            Double remainingSeconds = (Double) queryData.get("remaining_seconds");
-            Double remainingHours = (Double) queryData.get("remaining_hours");
+            BigDecimal usedSeconds = (BigDecimal) queryData.get("used_seconds");
+            BigDecimal remainingSeconds = (BigDecimal) queryData.get("remaining_seconds");
+            BigDecimal remainingHours = (BigDecimal) queryData.get("remaining_hours");
             
+            // 转换为更友好的格式
             result.put("totalDuration", queryData.get("total_duration"));
-            result.put("usedDuration", formatDuration(totalSeconds));
-            result.put("remainingDuration", formatDuration(remainingSeconds));
-            result.put("remainingHours", Math.round(remainingHours * 100.0) / 100.0);
+            result.put("usedSeconds", usedSeconds != null ? usedSeconds.doubleValue() : 0.0);
+            result.put("usedHours", usedSeconds != null ? usedSeconds.doubleValue() / 3600 : 0.0);
+            result.put("remainingSeconds", remainingSeconds != null ? remainingSeconds.doubleValue() : 0.0);
+            result.put("remainingHours", remainingHours != null ? remainingHours.doubleValue() : 0.0);
             result.put("status", queryData.get("status"));
             result.put("packageCost", queryData.get("cost"));
+            
+            // 添加格式化后的显示文本
+            result.put("usedDurationText", formatDuration(usedSeconds != null ? usedSeconds.doubleValue() : 0.0));
+            result.put("remainingDurationText", formatDuration(remainingSeconds != null ? remainingSeconds.doubleValue() : 0.0));
             
             return result;
             
@@ -228,25 +284,27 @@ public class UserService {
             throw new RuntimeException("用户剩余时长信息不存在: " + account);
         }
     }
-
     /**
-     * 将秒数格式化为易读的时长字符串
+     * 格式化时间为易读格式
      */
-    private String formatDuration(Double seconds) {
-        if (seconds == null || seconds == 0) {
+    private String formatDuration(double seconds) {
+        if (seconds <= 0) {
             return "0小时";
         }
         
-        long totalSeconds = seconds.longValue();
+        long totalSeconds = (long) seconds;
         long hours = totalSeconds / 3600;
         long minutes = (totalSeconds % 3600) / 60;
         
-        if (minutes == 0) {
+        if (hours == 0 && minutes == 0) {
+            return totalSeconds + "秒";
+        } else if (minutes == 0) {
             return hours + "小时";
         } else {
             return hours + "小时" + minutes + "分钟";
         }
     }
+    
 
     
     /**

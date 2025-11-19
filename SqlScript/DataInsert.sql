@@ -1,4 +1,4 @@
--- Active: 1763093912586@@127.0.0.1@5432@telecom_system
+-- Active: 1763301959721@@127.0.0.1@5432@telecom_system@public
 -- 插入套餐信息
 INSERT INTO package_info (id, duration, cost) VALUES
 (1, '100 hours', 20.00),
@@ -9,12 +9,12 @@ INSERT INTO admin_info (account, name, password) VALUES
 (100001, 'admin', 'admin123');
 
 -- 插入用户信息
-INSERT INTO user_info (name, password, balance, package_id, phone) VALUES
-('张三', 'zhangsan123', 100.50, '1', '13800138001'),
-('李四', 'lisi123', 50.00, '2', '13800138002'),
-('王五', 'wangwu123', 200.00, '1', '13800138003'),
-('赵六', 'zhaoliu123', 75.80, '2', '13800138004'),
-('钱七', 'qianqi123', 30.25, '1', '13800138005');
+INSERT INTO user_info (name, password, balance, package_id, phone, package_start_time) VALUES
+('张三', 'zhangsan123', 100.50, '1', '13800138001', '2024-01-01 00:00:00+08'),
+('李四', 'lisi123', 50.00, '2', '13800138002', '2024-01-01 00:00:00+08'),
+('王五', 'wangwu123', 200.00, '1', '13800138003', '2024-01-01 00:00:00+08'),
+('赵六', 'zhaoliu123', 75.80, '2', '13800138004', '2024-01-01 00:00:00+08'),
+('钱七', 'qianqi123', 30.25, '1', '13800138005', '2024-01-01 00:00:00+08');
 
 -- 插入登录信息（为5个用户生成30条登录记录）
 -- 用户200001的登录记录

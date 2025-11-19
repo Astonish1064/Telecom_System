@@ -70,6 +70,12 @@ public interface UserRepository extends JpaRepository<User, Integer> {
         return findByName(identifier);
     }
     
+    // 按 account 降序排序
+    List<User> findAllByOrderByAccountDesc();
+
+    // 按 account 升序排序
+    List<User> findAllByOrderByAccountAsc();
+    
     // 根据电话号码查找用户
     Optional<User> findByPhone(String phone);
     

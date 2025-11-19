@@ -26,8 +26,8 @@ public class AdminService {
     /**
      * 查询所有普通用户
      */
-    public List<User> findAllUsers() {
-        return userRepository.findAll();
+    public List<User> findAllByOrderByAccountAsc() {
+        return userRepository.findAllByOrderByAccountAsc();
     }
 
     /**

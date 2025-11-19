@@ -38,7 +38,7 @@ public class AdminController {
      */
     @GetMapping
     public ResponseEntity<List<User>> getAllUser() {
-        return ResponseEntity.ok(adminService.findAllUsers());
+        return ResponseEntity.ok(adminService.findAllByOrderByAccountAsc());
     }
 
     /**
@@ -46,7 +46,7 @@ public class AdminController {
      */
     @GetMapping("/menu")
     public String getAdminMenu(Model model) {
-        List<User> users = adminService.findAllUsers();
+        List<User> users = adminService.findAllByOrderByAccountAsc();
         // 页面里用 ${users} 遍历
         model.addAttribute("users", users);
         return "admin_menu";
@@ -91,7 +91,7 @@ public class AdminController {
      */
     @GetMapping("/traffic-stats")
     public ResponseEntity<?> getTrafficStats(Model model) {
-        List<Map<String,Object>> stats = statisticsService.getUserActivityStatistics();
+        List<Map<String,Object>> stats = statisticsService.getHourlyOnlineUserStatistics();
         model.addAttribute("stats", stats);
         return ResponseEntity.ok(stats);
     }

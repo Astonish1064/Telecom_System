@@ -17,6 +17,7 @@ CREATE TABLE user_info (
 	phone VARCHAR(20) NOT NULL,
     balance DECIMAL(10,2) NOT NULL,
     package_id INT NOT NULL,
+    package_start_time TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (package_id) REFERENCES package_info(id)
 );
 
@@ -35,5 +36,22 @@ CREATE TABLE login_info (
     PRIMARY KEY (account_id, login_time),
     FOREIGN KEY (account_id) REFERENCES user_info(account)
 );
+
 -- 设置用户账号从200001开始
 ALTER SEQUENCE user_info_account_seq RESTART WITH 200001;
+
+-- 创建触发器函数
+CREATE OR REPLACE FUNCTION delete_related_login_info()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- 当删除 user_info 记录时，自动删除 login_info 中的相关记录
+    DELETE FROM login_info WHERE account_id = OLD.account;
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+-- 创建触发器
+CREATE TRIGGER cascade_delete_login_info
+    BEFORE DELETE ON user_info
+    FOR EACH ROW
+    EXECUTE FUNCTION delete_related_login_info();

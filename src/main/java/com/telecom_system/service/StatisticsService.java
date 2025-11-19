@@ -187,48 +187,7 @@ public class StatisticsService {
                 .collect(Collectors.toList());
     }
     
-    /**
-     * 获取收入统计
-     */
-    public Map<String, Object> getRevenueStatistics(LocalDateTime start, LocalDateTime end) {
-        Map<String, Object> revenueStats = new HashMap<>();
-        
-        // 获取所有用户
-        List<User> allUsers = userRepository.findAll();
-        
-        // 计算套餐收入（基于用户选择的套餐）
-        BigDecimal totalPackageRevenue = allUsers.stream()
-                .map(user -> {
-                    // 这里需要根据用户套餐计算收入
-                    // 简化处理：使用固定值或从套餐表获取
-                    return BigDecimal.valueOf(50); // 示例值
-                })
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        
-        // 计算充值统计
-        BigDecimal totalBalance = allUsers.stream()
-                .map(User::getBalance)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-        
-        // 用户增长统计（基于创建时间）
-        long newUsersInPeriod = allUsers.stream()
-                .filter(user -> {
-                    LocalDateTime createTime = user.getCreateTime();
-                    return createTime != null && 
-                           !createTime.isBefore(start) && 
-                           !createTime.isAfter(end);
-                })
-                .count();
-        
-        revenueStats.put("period", start + " 至 " + end);
-        revenueStats.put("totalPackageRevenue", totalPackageRevenue);
-        revenueStats.put("totalUserBalance", totalBalance);
-        revenueStats.put("newUsers", newUsersInPeriod);
-        revenueStats.put("totalUsers", allUsers.size());
-        revenueStats.put("estimatedMonthlyRevenue", totalPackageRevenue.multiply(BigDecimal.valueOf(0.3))); // 估算
-        
-        return revenueStats;
-    }
+    
     
     /**
      * 获取实时数据统计
@@ -251,17 +210,6 @@ public class StatisticsService {
                 .distinct()
                 .count();
         
-        // 新注册用户（今日）
-        List<User> allUsers = userRepository.findAll();
-        int newUsersToday = (int) allUsers.stream()
-                .filter(user -> {
-                    LocalDateTime createTime = user.getCreateTime();
-                    return createTime != null && 
-                           !createTime.isBefore(todayStart) && 
-                           !createTime.isAfter(todayEnd);
-                })
-                .count();
-        
         // 系统负载信息
         long totalUsers = userRepository.count();
         long totalPackages = packageRepository.count();
@@ -269,7 +217,6 @@ public class StatisticsService {
         
         realtimeStats.put("onlineUsers", onlineUsers);
         realtimeStats.put("todayLoginUsers", todayLoginUsers);
-        realtimeStats.put("newUsersToday", newUsersToday);
         realtimeStats.put("totalUsers", totalUsers);
         realtimeStats.put("totalPackages", totalPackages);
         realtimeStats.put("totalLoginRecords", totalLoginRecords);

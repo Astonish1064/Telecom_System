@@ -40,7 +40,7 @@ public class UserController {
      */
     @GetMapping
     public ResponseEntity<List<User>> getAllUsers() {
-        return ResponseEntity.ok(userService.findAllUsers());
+        return ResponseEntity.ok(userService.findAllByOrderByAccountDesc());
     }
     
     /**
@@ -50,8 +50,14 @@ public class UserController {
     public String getAdminMenu(Model model, HttpSession session) {
         User user = (User) session.getAttribute("user");
         List<Package> packages = packageService.findAllPackages();
+        
         model.addAttribute("user", user);
         model.addAttribute("packages", packages);
+
+        // 添加剩余时间信息
+        Map<String, Object> remainingInfo = userService.getRemainingTime(user.getAccount());
+        model.addAttribute("remainingInfo", remainingInfo);
+
         return "user_menu";
     }
 

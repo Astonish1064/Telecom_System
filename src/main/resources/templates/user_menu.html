@@ -56,21 +56,28 @@
                     <div class="form-control-plaintext" id="field-phone" th:text="${user.phone}">13800000000</div>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">角色</label>
-                    <div class="form-control-plaintext" id="field-role" th:text="${user.role}">NORMAL</div>
-                </div>
-
-                <div class="col-md-3">
                     <label class="form-label">套餐ID</label>
                     <div class="form-control-plaintext" id="field-packageId" th:text="${user.packageId}">1</div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">余额</label>
-                    <div class="form-control-plaintext" id="field-balance" th:text="${user.balance}">0.00</div>
+                    <div class="form-control-plaintext" id="field-balance">
+                        ￥<span th:text="${user.balance}">0.00</span>
+                    </div>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">创建时间</label>
-                    <div class="form-control-plaintext" id="field-createTime" th:text="${#dates.format(user.createTime,'yyyy-MM-dd HH:mm:ss')}">2025-01-01</div>
+                <!-- 已使用时间 -->
+                <div class="col-md-3">
+                    <label class="form-label">已使用时间</label>
+                    <div class="form-control-plaintext" id="field-usedTime">
+                        <span th:text="${remainingInfo?.usedDurationText}">0小时</span>
+                    </div>
+                </div>
+                <!-- 剩余时间 -->
+                <div class="col-md-3">
+                    <label class="form-label">剩余时间</label>
+                    <div class="form-control-plaintext" id="field-remainingTime">
+                        <span th:text="${remainingInfo?.remainingDurationText}">0小时</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -81,7 +88,7 @@
         <div class="col-md-6">
             <div class="card shadow-sm">
                 <div class="card-header">
-                    修改套餐
+                    购买套餐
                 </div>
                 <div class="card-body">
                     <div class="mb-3">
@@ -104,7 +111,7 @@
                             <div><strong>价格：</strong><span id="packagePrice"></span></div>
                         </div>
                     </div>
-                    <button id="changePackageBtn" class="btn btn-primary">保存套餐</button>
+                    <button id="changePackageBtn" class="btn btn-primary">购买套餐</button>
                 </div>
             </div>
         </div>
@@ -192,32 +199,41 @@
     };
 
     const fetchProfile = () => {
-        console.log('[user_menu] fetchProfile', account);
-        fetch(`${apiBase}/${account}`)
-            .then(resp => {
-                if (!resp.ok) throw resp;
-                return resp.json();
-            })
-            .then(user => {
-                document.getElementById('field-account').textContent = user.account ?? '';
-                document.getElementById('field-name').textContent = user.name ?? '';
-                document.getElementById('field-phone').textContent = user.phone ?? '';
-                document.getElementById('field-role').textContent = user.role ?? '';
-                document.getElementById('field-packageId').textContent = user.packageId ?? '';
-                document.getElementById('field-balance').textContent = user.balance ?? '';
-                document.getElementById('field-createTime').textContent = (user.createTime ? user.createTime : '');
-            })
-            .catch(err => {
-                console.error(err);
-                if (err.json) {
-                    err.json().then(j => showResultModal(j)).catch(() => alert('获取信息失败'));
-                } else {
-                    alert('获取信息失败');
-                }
-            });
-    };
+    console.log('[user_menu] fetchProfile', account);
+    
+    Promise.all([
+        fetch(`${apiBase}/${account}`),
+        fetch(`${apiBase}/${account}/remaining-time`)
+    ])
+    .then(responses => {
+        return Promise.all(responses.map(resp => {
+            if (!resp.ok) throw resp;
+            return resp.json();
+        }));
+    })
+    .then(([user, remainingInfo]) => {
+        // 更新用户基本信息
+        document.getElementById('field-account').textContent = user.account ?? '';
+        document.getElementById('field-name').textContent = user.name ?? '';
+        document.getElementById('field-phone').textContent = user.phone ?? '';
+        document.getElementById('field-packageId').textContent = user.packageId ?? '';
+        document.getElementById('field-balance').innerHTML = '￥' + (user.balance ?? '');
 
-    document.getElementById('refreshProfile').addEventListener('click', fetchProfile);
+        // 更新剩余时间信息
+        document.getElementById('field-usedTime').textContent = remainingInfo?.usedDurationText ?? '0小时';
+        document.getElementById('field-remainingTime').textContent = remainingInfo?.remainingDurationText ?? '0小时';
+    })
+    .catch(err => {
+        console.error(err);
+        if (err.json) {
+            err.json().then(j => showResultModal(j)).catch(() => alert('获取信息失败'));
+        } else {
+            alert('获取信息失败');
+        }
+    });
+};
+
+document.getElementById('refreshProfile').addEventListener('click', fetchProfile);
 
     // 套餐选择显示逻辑
     const select = document.getElementById('selectPackage');
@@ -262,7 +278,7 @@
     // 修改套餐（保留原有调用方式）
     document.getElementById('changePackageBtn').addEventListener('click', () => {
         const pkg = document.getElementById('selectPackage').value;
-        if (!confirm('确认将套餐更改为：' + pkg + ' ?')) return;
+        if (!confirm('确认购买并且将套餐更改为：' + pkg + ' ?' + '\n新套餐将直接覆盖旧套餐,且费用立即扣除。')) return;
         fetch(`${apiBase}/${account}/change-package?packageId=${encodeURIComponent(pkg)}`, {
             method: 'POST'
         })
@@ -300,9 +316,10 @@
         })
         .then(data => {
             showResultModal(data);
+            amtEl.value = '';
             // 更新余额显示（后端返回 newBalance）
             if (data.newBalance !== undefined) {
-                document.getElementById('field-balance').textContent = data.newBalance;
+                document.getElementById('field-balance').textContent = "￥" + data.newBalance;
             } else {
                 // 若返回 user object, refresh profile
                 fetchProfile();
@@ -320,6 +337,24 @@
 
     // 页面初始加载个人信息
     fetchProfile();
+
+    // 每分钟自动刷新个人信息
+    let refreshInterval = setInterval(fetchProfile, 30000);
+
+    // 添加调试信息，确认定时器已启动
+    console.log('[user_menu] 自动刷新已启动，间隔:', refreshInterval);
+
+    // 添加页面可见性检测，优化性能
+    document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            // 页面不可见时暂停刷新以节省资源
+            clearInterval(refreshInterval);
+        } else {
+            // 页面可见时恢复刷新
+            let refreshInterval = setInterval(fetchProfile, 30000);
+            fetchProfile(); // 立即刷新一次
+        }
+});
 
 })();
 </script>
