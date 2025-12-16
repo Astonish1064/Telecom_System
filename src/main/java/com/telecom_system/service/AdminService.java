@@ -1,6 +1,7 @@
 package com.telecom_system.service;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -119,7 +120,13 @@ public class AdminService {
                     // 合并更新可变字段到现有实体
                     if (user.getName() != null) existingUser.setName(user.getName());
                     if (user.getPhone() != null) existingUser.setPhone(user.getPhone());
-                    if (user.getPackageId() != null) existingUser.setPackageId(user.getPackageId());
+                    if (user.getPackageId() != null) {
+                        if (!user.getPackageId().equals(existingUser.getPackageId())) {
+                            // 套餐发生变化，更新套餐生效时间为当前时间
+                            existingUser.setPackageStartTime(LocalDateTime.now());
+                        }
+                        existingUser.setPackageId(user.getPackageId());
+                    }
                     if (user.getBalance() != null) existingUser.setBalance(user.getBalance());
                     if (user.getPassword() != null) existingUser.setPassword(user.getPassword());
 
@@ -166,6 +173,23 @@ public class AdminService {
         userRepository.deleteById(id);
     }
 
+    /**
+     * 根据ID或姓名搜索用户
+     */
+    public List<User> searchUsers(String query) {
+        if (query == null || query.trim().isEmpty()) {
+            return List.of();
+        }
+        query = query.trim();
+        if (query.matches("\\d+")) {
+            // 全数字，按ID前缀搜索
+            return userRepository.findByAccountStartingWith(query);
+        } else {
+            // 按姓名搜索
+            return userRepository.findByNameContaining(query);
+        }
+    }
+    
     /**
      * 重置普通用户密码
      */

@@ -3,6 +3,8 @@
     const account = cfg.account || 0; // from injected config
     const apiBase = cfg.apiBase || "/user"; // default
 
+    let timeWarningShown = false; // 标记是否已显示过剩余时间提醒
+
     // 显示登录成功的 toast（如果有 flash attribute 'success'）
     let loginMsg = cfg.loginMsg || '';
         // Safety: backend template may render null/undefined as string 'null' or 'undefined'.
@@ -133,6 +135,19 @@
                 document.getElementById('field-balance').innerHTML = '￥' + (user.balance ?? '');
                 document.getElementById('field-usedTime').textContent = remainingInfo?.usedDurationText ?? '0小时';
                 document.getElementById('field-remainingTime').textContent = remainingInfo?.remainingDurationText ?? '0小时';
+
+                // 检查剩余时间是否为0，为0则强制下线
+                if (remainingInfo && remainingInfo.remainingSeconds <= 0) {
+                    alert('剩余时间已用完，系统将自动登出。');
+                    window.location.href = '/login/logout';
+                }
+
+                // 检查剩余时间是否小于30分钟，显示提醒
+                if (remainingInfo && remainingInfo.remainingSeconds < 1800 && !timeWarningShown) {
+                    const modal = new bootstrap.Modal(document.getElementById('timeWarningModal'));
+                    modal.show();
+                    timeWarningShown = true;
+                }
             })
             .catch(err => handleApiError(err, '获取信息失败'));
     };

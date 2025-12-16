@@ -78,6 +78,15 @@ public class AdminController {
                 "totalElements", usersPage.getTotalElements()
         ));
     }
+
+    /**
+     * 搜索用户（根据ID或姓名）
+     */
+    @GetMapping("/users/search")
+    public ResponseEntity<List<User>> searchUsers(@RequestParam String query) {
+        List<User> users = adminService.searchUsers(query);
+        return ResponseEntity.ok(users);
+    }
     
     /**
      * 管理员创建普通用户

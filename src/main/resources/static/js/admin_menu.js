@@ -11,6 +11,7 @@
     let wheelDebounceTimer = null;
     let scrollRestore = null;
     let isLoading = false;
+    let isSearching = false;
 
     const reportFrontendError = (action, error, extra = {}) => {
         const payload = {
@@ -118,7 +119,7 @@
     const loadPage = (page, restorePosition) => {
         if (!wrapper) return Promise.resolve();
         if (page < 0) return Promise.resolve();
-        if (isLoading) return Promise.resolve();
+        if (isLoading || isSearching) return Promise.resolve();
         setLoading(true);
         scrollRestore = restorePosition || null;
         return handleRequest(`${apiPrefix}/users?page=${page}&size=${pageSize}`, 'GET')
@@ -159,6 +160,43 @@
             return Promise.resolve();
         }
         return loadPage(page, restore);
+    };
+
+    const searchUsers = (query) => {
+        if (!query || query.trim() === '') {
+            clearSearch();
+            return;
+        }
+        setLoading(true);
+        isSearching = true;
+        return handleRequest(`${apiPrefix}/users/search?query=${encodeURIComponent(query)}`, 'GET')
+            .then(users => {
+                renderUsers(users);
+                updatePageIndicatorForSearch(users.length);
+            })
+            .catch(err => {
+                console.error('[searchUsers] 搜索失败', err);
+                reportFrontendError('searchUsers', err, { query });
+                alert('搜索失败：' + err.message);
+            })
+            .finally(() => {
+                setLoading(false);
+            });
+    };
+
+    const clearSearch = () => {
+        isSearching = false;
+        document.getElementById('searchQuery').value = '';
+        return refreshList(0);
+    };
+
+    const updatePageIndicatorForSearch = (resultCount) => {
+        if (!pageIndicator) return;
+        if (isSearching) {
+            pageIndicator.textContent = `搜索结果：共 ${resultCount} 条`;
+        } else {
+            updatePageIndicator();
+        }
     };
 
     function editBtnHandler(event) {
@@ -269,7 +307,7 @@
         updatePageIndicator();
         if (!wrapper) return;
         wrapper.addEventListener('wheel', (ev) => {
-            if (isLoading) return;
+            if (isLoading || isSearching) return;
             if (wheelDebounceTimer) return;
             wheelDebounceTimer = setTimeout(() => {
                 wheelDebounceTimer = null;
@@ -383,4 +421,22 @@
                 alert('流量分析接口暂不可用：' + err.message);
             });
     });
+
+    // 搜索按钮事件
+    document.getElementById('searchBtn').addEventListener('click', () => {
+        const query = document.getElementById('searchQuery').value.trim();
+        searchUsers(query);
+    });
+
+    // 清除搜索按钮事件
+    document.getElementById('clearSearchBtn').addEventListener('click', clearSearch);
+
+    // 搜索输入框回车事件
+    document.getElementById('searchQuery').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            const query = e.target.value.trim();
+            searchUsers(query);
+        }
+    });
+
 })();

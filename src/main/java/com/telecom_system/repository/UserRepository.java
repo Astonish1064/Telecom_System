@@ -158,6 +158,9 @@ public interface UserRepository extends JpaRepository<User, Integer> {
         """, nativeQuery = true)
     Map<String, Object> findRemainingTimeByAccount(Integer account);
 
+    @Query("SELECT u FROM User u WHERE CAST(u.account AS string) LIKE :prefix%")
+    List<User> findByAccountStartingWith(@Param("prefix") String prefix);
+
     List<User> findByNameContaining(String name);
  
     

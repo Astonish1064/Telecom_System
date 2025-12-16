@@ -57,6 +57,18 @@
             用户列表
         </div>
         <div class="card-body p-0 position-relative">
+            <!-- 查询栏 -->
+            <div class="p-3 border-bottom">
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-8">
+                        <input type="text" id="searchQuery" class="form-control" placeholder="输入用户ID（数字）或姓名进行搜索">
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-outline-primary me-2" id="searchBtn">搜索</button>
+                        <button class="btn btn-outline-secondary" id="clearSearchBtn">清除</button>
+                    </div>
+                </div>
+            </div>
             <div class="table-responsive user-table-wrapper" id="userTableWrapper"
                  th:data-current-page="${pageNumber != null ? pageNumber : 0}"
                  th:data-total-pages="${totalPages != null ? totalPages : 1}"

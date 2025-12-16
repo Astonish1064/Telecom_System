@@ -1,5 +1,7 @@
 package com.telecom_system.controller;
 
+import java.util.Map;
+
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,6 +14,7 @@ import com.telecom_system.entity.User;
 import com.telecom_system.service.ExceptionLoggingService;
 import com.telecom_system.service.LoginInfoService;
 import com.telecom_system.service.LoginService;
+import com.telecom_system.service.UserService;
 
 import jakarta.servlet.http.HttpSession;
 
@@ -23,12 +26,14 @@ public class AuthController {
     private final LoginService loginService;
     private final LoginInfoService loginInfoService;
     private final ExceptionLoggingService exceptionLoggingService;
+    private final UserService userService;
 
     public AuthController(LoginService loginService, LoginInfoService loginInfoService,
-                          ExceptionLoggingService exceptionLoggingService) {
+                          ExceptionLoggingService exceptionLoggingService, UserService userService) {
         this.loginService = loginService;
         this.loginInfoService = loginInfoService;
         this.exceptionLoggingService = exceptionLoggingService;
+        this.userService = userService;
     }
     
     /**
@@ -41,6 +46,12 @@ public class AuthController {
                             RedirectAttributes redirectAttributes) {
         return loginService.userLogin(identifier, password)
                 .map(user -> {
+                    // 检查剩余时间
+                    Map<String, Object> remainingInfo = userService.getRemainingTime(user.getAccount());
+                    if (((Number) remainingInfo.get("remainingSeconds")).doubleValue() <= 0.0) {
+                        redirectAttributes.addFlashAttribute("error", "您的剩余时间已用完，请联系管理员解决。");
+                        return "redirect:/login";
+                    }
                     // 记录登录时间（失败时写日志但不阻塞登录）
                     try {
                         loginInfoService.recordLogin(user.getAccount());
